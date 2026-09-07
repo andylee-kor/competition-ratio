@@ -1,0 +1,32 @@
+import { chromium } from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://localhost:5173');
+ await page.getByLabel('학교 선택').locator('option').nth(1).waitFor({state:'attached',timeout:60000});
+ await page.getByLabel('학교 선택').selectOption({label:'가천대학교 · 수시모집'});
+ await page.getByLabel('전형',{exact:true}).selectOption({label:'논술 전형'},{timeout:60000});
+ const first=await page.getByLabel('학과 · 모집단위').locator('option').nth(1).getAttribute('value');
+ await page.getByLabel('학과 · 모집단위').selectOption(first);
+ await page.getByRole('button',{name:'등록',exact:true}).click();
+ await page.getByRole('button',{name:'등록',exact:true}).click();
+ assert.equal(await page.locator('.registered li').count(),1);
+ await page.reload();await page.locator('.ratio-card .ratio').filter({hasText:': 1'}).waitFor({timeout:60000});
+ assert.equal(await page.locator('.registered li').count(),1);
+ await page.screenshot({path:'/tmp/ratio-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'/tmp/ratio-mobile.png',fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+ await page.route('**/api/ratio/**',route=>route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'일시적인 조회 실패'})}));
+ await page.getByRole('button',{name:'새로고침',exact:true}).click();
+ await page.getByText('조회 확인 필요',{exact:true}).waitFor();
+ assert.match(await page.locator('.ratio-card .ratio').innerText(),/: 1/);
+ assert.match(await page.locator('.error-text').innerText(),/이전 조회 값/);
+ await page.unroute('**/api/ratio/**');
+ await page.getByRole('button',{name:/지원 목록 관리/}).click();
+ await page.getByRole('button',{name:/삭제/}).click();assert.equal(await page.locator('.registered li').count(),0);
+ await page.reload();assert.equal(await page.locator('.registered li').count(),0);
+ assert.deepEqual(errors,[]);console.log('PASS: live data, registration, duplicate prevention, persistence, deletion, stale data on failure, mobile overflow, no browser exceptions');
+}finally{await browser.close();}

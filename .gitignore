@@ -1,0 +1,10 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.zip
+.env
+.env.*
+!.env.example
+.agents/
+.codex/
