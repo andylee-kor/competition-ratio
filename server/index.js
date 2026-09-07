@@ -35,4 +35,4 @@ app.get('/api/ratio/:id', async(req,res)=>{
 if (process.env.NODE_ENV === 'production') app.use(express.static('dist'));
 else { const { createServer } = await import('vite'); const vite = await createServer({server:{middlewareMode:true},appType:'spa'}); app.use(vite.middlewares); }
 const port = Number(process.env.PORT || 5173);
-app.listen(port,'127.0.0.1',()=>console.log(`수시 경쟁률 http://localhost:${port}`));
+app.listen(port,'0.0.0.0',()=>console.log(`수시 경쟁률 http://localhost:${port}`));

@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-http://localhost:5173 에서 사용합니다. 다른 포트는 `PORT=5174 npm run dev`로 지정합니다. 인터넷 연결이 필요하며 서버는 로컬 주소에만 바인딩합니다.
+http://localhost:5173 에서 사용합니다. 다른 포트는 `PORT=5174 npm run dev`로 지정합니다. 인터넷 연결이 필요하며 서버는 외부 접속을 받을 수 있도록 `0.0.0.0`에 바인딩합니다.
 
 ```sh
 npm run build
