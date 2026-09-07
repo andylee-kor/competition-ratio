@@ -4,7 +4,7 @@
 
 ## 실행
 
-Node.js 22.12 이상과 curl이 필요합니다.
+Node.js 22.12 이상이 필요합니다. HTTP 조회는 Node.js에서 직접 처리하며 curl 설치는 필요하지 않습니다.
 
 ```sh
 npm install

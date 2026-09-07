@@ -4,7 +4,13 @@ const clean = s => s.replace(/\s+/g, ' ').trim();
 const id = s => createHash('sha256').update(s).digest('hex').slice(0, 20);
 export function parseSchools(html) {
   const $ = load(html);
-  const data = JSON.parse($('#hdnResultNow').val());
+  let data;
+  try {
+    data = JSON.parse($('#hdnResultNow').val());
+    if (!Array.isArray(data?.Columns) || !Array.isArray(data?.Rows)) throw new Error('Missing table');
+  } catch {
+    throw Object.assign(new Error('SmartRatio school data missing or invalid'), { code: 'UPSTREAM_FORMAT' });
+  }
   return data.Rows.map(row => Object.fromEntries(data.Columns.map((c, i) => [c, row[i]])))
     .filter(s => s.CategoryName === '수시')
     .map(s => ({ id: id(`${s.SchoolYear}|${s.UnivName}|${s.CategoryDisplayName}`), name: s.UnivName, year: s.SchoolYear, category: s.CategoryDisplayName, url: (s.RatioLink || '').trim(), startsAt: s.ApplyFromTime, endsAt: s.ApplyToTime }))

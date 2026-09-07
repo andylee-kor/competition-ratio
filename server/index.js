@@ -1,17 +1,14 @@
 import express from 'express';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import iconv from 'iconv-lite';
+import { html } from './http.js';
 import { parseSchools, parseRatio } from './parser.js';
-const exec = promisify(execFile);
 const app = express();
 const cache = new Map();
 const pending = new Map();
-async function html(url) {
-  // curl honors the host's proxy settings, including this workspace's network proxy.
-  const { stdout } = await exec('curl', ['--fail','--location','--silent','--show-error','--max-time','25','--proto','=http,https','--proto-redir','=http,https', url], { encoding: 'buffer', maxBuffer: 8*1024*1024 });
-  const head = stdout.subarray(0,4000).toString('ascii');
-  return iconv.decode(stdout, /charset\s*=\s*["']?(euc-kr|ks_c_5601|cp949)/i.test(head) ? 'cp949' : 'utf8');
+function failure(res, error, scope) {
+  const code = String(error.cause?.code || error.code || error.name || 'UPSTREAM_ERROR');
+  console.error(`[${scope}]`, { code, message: error.message, cause: error.cause?.message });
+  const detail = /TIMEOUT|Timeout/.test(code) ? '원본 사이트 응답 시간이 초과되었습니다.' : /UPSTREAM_HTTP_/.test(code) ? '원본 사이트가 요청을 거부했거나 오류를 반환했습니다.' : code === 'UPSTREAM_FORMAT' ? '원본 페이지에서 학교 목록 데이터를 찾을 수 없습니다.' : '원본 사이트에 연결하지 못했습니다.';
+  res.status(502).json({ error: `${detail} 잠시 후 다시 시도해 주세요. (${code})` });
 }
 async function cached(key, ttl, fn) {
   const old = cache.get(key);
@@ -21,7 +18,7 @@ async function cached(key, ttl, fn) {
   pending.set(key,task); return task;
 }
 const schools = () => cached('schools', 3600000, async()=>parseSchools(await html('https://apply.jinhakapply.com/SmartRatio')));
-app.get('/api/schools', async(req,res)=>{ try { res.json(await schools()); } catch { res.status(502).json({error:'학교 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); } });
+app.get('/api/schools', async(req,res)=>{ try { res.json(await schools()); } catch (error) { failure(res, error, 'schools'); } });
 app.get('/api/ratio/:id', async(req,res)=>{
   try {
     const school = (await schools()).find(s=>s.id===req.params.id);
@@ -30,7 +27,7 @@ app.get('/api/ratio/:id', async(req,res)=>{
     const result = await cached(school.url, 60000, async()=>parseRatio(await html(school.url)));
     if (!result.rows.length) return res.status(422).json({error:'아직 공개된 표가 없거나 자동 조회를 지원하지 않는 형식입니다. 원문을 확인해 주세요.'});
     res.json({...result, school});
-  } catch { res.status(502).json({error:'학교 경쟁률을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); }
+  } catch (error) { failure(res, error, 'ratio'); }
 });
 if (process.env.NODE_ENV === 'production') app.use(express.static('dist'));
 else { const { createServer } = await import('vite'); const vite = await createServer({server:{middlewareMode:true},appType:'spa'}); app.use(vite.middlewares); }
